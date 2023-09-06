@@ -3,10 +3,10 @@ package com.csc301.profilemicroservice;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.neo4j.driver.v1.Driver;
-import org.neo4j.driver.v1.Session;
-import org.neo4j.driver.v1.StatementResult;
-import org.neo4j.driver.v1.Transaction;
+import org.neo4j.driver.Driver;
+import org.neo4j.driver.Result;
+import org.neo4j.driver.Session;
+import org.neo4j.driver.Transaction;
 import org.springframework.stereotype.Repository;
 
 @Repository
@@ -19,9 +19,10 @@ public class PlaylistDriverImpl implements PlaylistDriver {
 
     try (Session session = ProfileMicroserviceApplication.driver.session()) {
       try (Transaction trans = session.beginTransaction()) {
-        queryStr = "CREATE CONSTRAINT ON (nPlaylist:playlist) ASSERT exists(nPlaylist.plName)";
-        trans.run(queryStr);
-        trans.success();
+        // queryStr = "CREATE CONSTRAINT FOR (nPlaylist:playlist)
+        // REQUIRE(nPlaylist.plName)";
+        // trans.run(queryStr);
+        trans.commit();
       }
       session.close();
     }
@@ -37,7 +38,7 @@ public class PlaylistDriverImpl implements PlaylistDriver {
   public DbQueryStatus likeSong(String userName, String songId) {
     boolean valid = userName != null && songId != null;
     String queryStr;
-    StatementResult res;
+    Result res;
 
     if (!valid)
       return new DbQueryStatus("PUT", DbQueryExecResult.QUERY_ERROR_GENERIC);
@@ -68,7 +69,7 @@ public class PlaylistDriverImpl implements PlaylistDriver {
 
         queryStr = "MATCH (p:playlist {plName: $plName}) \n  MATCH (s:song {songId: $songId}) \n CREATE (p)-[:includes]->(s)";
         trans.run(queryStr, params);
-        trans.success();
+        trans.commit();
       }
       session.close();
       return new DbQueryStatus("PUT", DbQueryExecResult.QUERY_OK);
@@ -88,7 +89,7 @@ public class PlaylistDriverImpl implements PlaylistDriver {
   public DbQueryStatus unlikeSong(String userName, String songId) {
     boolean valid = userName != null && songId != null;
     String queryStr;
-    StatementResult res;
+    Result res;
 
     if (!valid)
       return new DbQueryStatus("PUT", DbQueryExecResult.QUERY_ERROR_GENERIC);
@@ -119,7 +120,7 @@ public class PlaylistDriverImpl implements PlaylistDriver {
 
         queryStr = "MATCH (p:playlist {plName: $plName})-[r:includes]->(s:song {songId: $songId}) DELETE r";
         trans.run(queryStr, params);
-        trans.success();
+        trans.commit();
       }
       session.close();
       return new DbQueryStatus("PUT", DbQueryExecResult.QUERY_OK);

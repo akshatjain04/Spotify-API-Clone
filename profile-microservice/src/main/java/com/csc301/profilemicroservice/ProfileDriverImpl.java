@@ -5,11 +5,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.neo4j.driver.v1.Driver;
-import org.neo4j.driver.v1.Record;
-import org.neo4j.driver.v1.Session;
-import org.neo4j.driver.v1.StatementResult;
-import org.neo4j.driver.v1.Transaction;
+import org.neo4j.driver.Driver;
+import org.neo4j.driver.Result;
+import org.neo4j.driver.Session;
+import org.neo4j.driver.Transaction;
 import org.springframework.stereotype.Repository;
 
 @Repository
@@ -22,16 +21,19 @@ public class ProfileDriverImpl implements ProfileDriver {
 
     try (Session session = ProfileMicroserviceApplication.driver.session()) {
       try (Transaction trans = session.beginTransaction()) {
-        queryStr = "CREATE CONSTRAINT ON (nProfile:profile) ASSERT exists(nProfile.userName)";
-        trans.run(queryStr);
+        // queryStr = "CREATE CONSTRAINT FOR (nProfile::profile) REQUIRE
+        // nProfile.userName";
+        // trans.run(queryStr);
 
-        queryStr = "CREATE CONSTRAINT ON (nProfile:profile) ASSERT exists(nProfile.password)";
-        trans.run(queryStr);
+        // queryStr = "CREATE CONSTRAINT FOR (nProfile::profile)
+        // REQUIRE(nProfile.password)";
+        // trans.run(queryStr);
 
-        queryStr = "CREATE CONSTRAINT ON (nProfile:profile) ASSERT nProfile.userName IS UNIQUE";
-        trans.run(queryStr);
+        // queryStr = "CREATE CONSTRAINT FOR (nProfile::profile) REQUIRE
+        // nProfile.userName IS UNIQUE";
+        // trans.run(queryStr);
 
-        trans.success();
+        trans.commit();
       }
       session.close();
     }
@@ -95,9 +97,9 @@ public class ProfileDriverImpl implements ProfileDriver {
       boolean followed = false;
 
       try (Transaction trans = session.beginTransaction()) {
-        StatementResult existUserRes = trans.run("MATCH (n:profile {userName: $userName}) RETURN n.userName as u",
+        Result existUserRes = trans.run("MATCH (n:profile {userName: $userName}) RETURN n.userName as u",
             params);
-        StatementResult existFrndRes = trans.run("MATCH (n:profile {userName: $frndUserName}) RETURN n.userName as f",
+        Result existFrndRes = trans.run("MATCH (n:profile {userName: $frndUserName}) RETURN n.userName as f",
             params);
 
         // CASE: at least one user doesn't exist
@@ -105,12 +107,12 @@ public class ProfileDriverImpl implements ProfileDriver {
           return new DbQueryStatus("POST", DbQueryExecResult.QUERY_ERROR_GENERIC);
 
         // CASE: user already follows frnd
-        StatementResult result = trans.run(
+        Result result = trans.run(
             "RETURN EXISTS( (:profile {userName: $userName})-[:follows]->(:profile {userName: $frndUserName}) ) as bool",
             params);
 
         if (result.hasNext()) {
-          Record record = result.next();
+          org.neo4j.driver.Record record = result.next();
           followed = record.get("bool").asBoolean();
 
           if (followed)
@@ -120,7 +122,7 @@ public class ProfileDriverImpl implements ProfileDriver {
               "MATCH (a:profile),(b:profile) \n WHERE a.userName = $userName AND b.userName = $frndUserName \nCREATE (a)-[r:follows]->(b)",
               params);
 
-          trans.success();
+          trans.commit();
         }
       }
       session.close();
@@ -157,9 +159,9 @@ public class ProfileDriverImpl implements ProfileDriver {
       params.put("frndUserName", frndUserName);
 
       try (Transaction trans = session.beginTransaction()) {
-        StatementResult existUserRes = trans.run("MATCH (n:profile {userName: $userName}) RETURN n.userName as u",
+        Result existUserRes = trans.run("MATCH (n:profile {userName: $userName}) RETURN n.userName as u",
             params);
-        StatementResult existFrndRes = trans.run("MATCH (n:profile {userName: $frndUserName}) RETURN n.userName as f",
+        Result existFrndRes = trans.run("MATCH (n:profile {userName: $frndUserName}) RETURN n.userName as f",
             params);
 
         // CASE: at least one user doesn't exist
@@ -167,12 +169,12 @@ public class ProfileDriverImpl implements ProfileDriver {
           return new DbQueryStatus("POST", DbQueryExecResult.QUERY_ERROR_GENERIC);
 
         // CASE: user doesn't follows frnd
-        StatementResult result = trans.run(
+        Result result = trans.run(
             "RETURN EXISTS( (:profile {userName: $userName})-[:follows]->(:profile {userName: $frndUserName}) ) as bool",
             params);
 
         if (result.hasNext()) {
-          Record record = result.next();
+          org.neo4j.driver.Record record = result.next();
           followed = record.get("bool").asBoolean();
 
           if (!followed)
@@ -182,7 +184,7 @@ public class ProfileDriverImpl implements ProfileDriver {
               "MATCH (n:profile { userName: $userName })-[r:follows]->(m:profile { userName: $frndUserName }) DELETE r",
               params);
 
-          trans.success();
+          trans.commit();
         }
       }
 
@@ -205,7 +207,8 @@ public class ProfileDriverImpl implements ProfileDriver {
   public DbQueryStatus getAllSongFriendsLike(String userName) {
     boolean valid = userName != null;
     String queryStr;
-    StatementResult userResult, songResult;
+    Result userResult;
+    Result songResult;
 
     DbQueryStatus dbQueryStatus = new DbQueryStatus("GET", DbQueryExecResult.QUERY_OK);
 
@@ -229,12 +232,13 @@ public class ProfileDriverImpl implements ProfileDriver {
         for (Object follower : followers) {
           params.put("userName", (String) follower);
           songResult = trans.run(queryStr, params);
-          // only for a sanity check, for the most part, the query returns [], i.e. songResult.hasNext() == true
+          // only for a sanity check, for the most part, the query returns [], i.e.
+          // songResult.hasNext() == true
           data.put((String) follower,
               !songResult.hasNext() ? new ArrayList<String>() : songResult.next().get("songs").asList());
         }
         dbQueryStatus.setData(data);
-        trans.success();
+        trans.commit();
       }
       session.close();
       return dbQueryStatus;
