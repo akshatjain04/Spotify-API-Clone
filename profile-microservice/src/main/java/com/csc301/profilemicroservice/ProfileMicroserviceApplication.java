@@ -10,7 +10,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 public class ProfileMicroserviceApplication {
 
   public static String dbUri = "bolt://localhost:7687";
-  public static Driver driver = GraphDatabase.driver(dbUri, AuthTokens.basic("neo4j", "ApzKQdp5*"));
+  public static Driver driver = GraphDatabase.driver(dbUri, AuthTokens.basic("neo4j", "12345678*"));
 
   public static void main(String[] args) {
     SpringApplication.run(ProfileMicroserviceApplication.class, args);
